@@ -66,14 +66,28 @@ public class CredentialBackupManager {
         }
     }
 
-    public static byte[] createEncryptedBackup(List<PublicKeyCredentialSource> credentials, String password)
+    public static byte[] createEncryptedBackup(Context context, List<PublicKeyCredentialSource> credentials, String password)
             throws Exception {
         if (password == null || password.isEmpty()) {
             throw new IllegalArgumentException("Password cannot be empty");
         }
 
+        CredentialSafe safe = new CredentialSafe(context);
+        for (PublicKeyCredentialSource source : credentials) {
+            if (source.privateKeyBytes != null) {
+                source.rawPrivateKeyBytes = safe.decryptData(source.privateKeyBytes);
+            }
+        }
+
         String json = gson.toJson(credentials);
         byte[] plaintext = json.getBytes("UTF-8");
+
+        for (PublicKeyCredentialSource source : credentials) {
+            if (source.rawPrivateKeyBytes != null) {
+                Arrays.fill(source.rawPrivateKeyBytes, (byte) 0);
+                source.rawPrivateKeyBytes = null;
+            }
+        }
 
         SecureRandom random = new SecureRandom();
         byte[] salt = new byte[SALT_SIZE_BYTES];
@@ -129,8 +143,6 @@ public class CredentialBackupManager {
 
         CredentialSafe safe = new CredentialSafe(context);
         CredentialDatabase db = CredentialDatabase.getDatabase(context);
-        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
-        keyStore.load(null);
 
         int restoredCount = 0;
         for (PublicKeyCredentialSource credential : restoredList) {
@@ -138,25 +150,13 @@ public class CredentialBackupManager {
                 continue;
             }
 
-            if (credential.keyPairAlias != null && !keyStore.containsAlias(credential.keyPairAlias)) {
-                try {
-                    safe.generateNewES256KeyPair(credential.keyPairAlias);
-                } catch (Exception e) {
-                    Log.w(TAG, "Could not generate key pair for alias: " + credential.keyPairAlias, e);
-                }
-            }
-
-            if (credential.generateHmacSecret && credential.hmacSecretAlias != null
-                    && !keyStore.containsAlias(credential.hmacSecretAlias)) {
-                try {
-                    KeyGenParameterSpec.Builder hmacParameterSpec = new KeyGenParameterSpec.Builder(
-                            credential.hmacSecretAlias, KeyProperties.PURPOSE_SIGN);
-                    hmacParameterSpec.setDigests(KeyProperties.DIGEST_SHA256);
-                    hmacParameterSpec.setKeySize(256);
-                    safe.generateSymmetricKey(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, hmacParameterSpec);
-                } catch (Exception e) {
-                    Log.w(TAG, "Could not generate HMAC key for alias: " + credential.hmacSecretAlias, e);
-                }
+            if (credential.rawPrivateKeyBytes != null && credential.publicKeyBytes != null) {
+                credential.privateKeyBytes = safe.encryptData(credential.rawPrivateKeyBytes);
+                Arrays.fill(credential.rawPrivateKeyBytes, (byte) 0);
+                credential.rawPrivateKeyBytes = null;
+            } else {
+                Log.w(TAG, "Restored credential missing software key pair material. Cannot be fully restored.");
+                continue;
             }
 
             PublicKeyCredentialSource existing = db.credentialDao().getById(credential.id);

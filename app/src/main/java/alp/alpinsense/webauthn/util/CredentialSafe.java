@@ -51,6 +51,13 @@ import alp.alpinsense.webauthn.util.database.CredentialDatabase;
  * These keys can optionally be protected with "Strongbox keymaster" protection and user
  * authentication on supported hardware.
  */
+import java.nio.ByteBuffer;
+import java.security.KeyFactory;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+
 public class CredentialSafe {
     private static final String KEYSTORE_TYPE = "AndroidKeyStore";
     private static final String CURVE_NAME = "secp256r1";
@@ -126,6 +133,46 @@ public class CredentialSafe {
         }
     }
 
+    private SecretKey getDbEncryptionKey() throws Exception {
+        String alias = "alp_db_encryption_key";
+        if (!keyStore.containsAlias(alias)) {
+            KeyGenerator kpg = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE_TYPE);
+            kpg.init(new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setKeySize(256)
+                    .build());
+            kpg.generateKey();
+        }
+        return (SecretKey) keyStore.getKey(alias, null);
+    }
+
+    public byte[] encryptData(byte[] plaintext) throws Exception {
+        if (plaintext == null) return null;
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, getDbEncryptionKey());
+        byte[] iv = cipher.getIV();
+        byte[] ciphertext = cipher.doFinal(plaintext);
+        ByteBuffer byteBuffer = ByteBuffer.allocate(1 + iv.length + ciphertext.length);
+        byteBuffer.put((byte) iv.length);
+        byteBuffer.put(iv);
+        byteBuffer.put(ciphertext);
+        return byteBuffer.array();
+    }
+
+    public byte[] decryptData(byte[] encryptedData) throws Exception {
+        if (encryptedData == null) return null;
+        ByteBuffer byteBuffer = ByteBuffer.wrap(encryptedData);
+        int ivLength = byteBuffer.get();
+        byte[] iv = new byte[ivLength];
+        byteBuffer.get(iv);
+        byte[] ciphertext = new byte[byteBuffer.remaining()];
+        byteBuffer.get(ciphertext);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, getDbEncryptionKey(), new GCMParameterSpec(128, iv));
+        return cipher.doFinal(ciphertext);
+    }
+
     /**
      * Generate and save new credential with an ES256 keypair.
      *
@@ -183,7 +230,16 @@ public class CredentialSafe {
                                                          userHandle, userDisplayName,
                                                          generateHmacSecret, u2fRpId);
 
-        generateNewES256KeyPair(credentialSource.keyPairAlias); // return not captured -- will retrieve credential by alias
+        try {
+            KeyPairGenerator kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC);
+            kpg.initialize(new java.security.spec.ECGenParameterSpec("secp256r1"));
+            KeyPair kp = kpg.generateKeyPair();
+            credentialSource.privateKeyBytes = encryptData(kp.getPrivate().getEncoded());
+            credentialSource.publicKeyBytes = kp.getPublic().getEncoded();
+        } catch (Exception e) {
+            throw new VirgilException("Failed to generate software key pair", e);
+        }
+
         SecretKey symmetricKey = null;
         if (generateHmacSecret) {
             KeyGenParameterSpec.Builder hmacParameterSpec = new KeyGenParameterSpec.Builder(
@@ -283,13 +339,29 @@ public class CredentialSafe {
      * @throws VirgilException
      */
     public KeyPair getKeyPairByAlias(@NonNull String alias) throws VirgilException {
+        // Fallback to legacy KeyStore lookup by alias if software key is missing
         try {
-            PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, null);
-            PublicKey publicKey = keyStore.getCertificate(alias).getPublicKey();
+            java.security.PrivateKey privateKey = (java.security.PrivateKey) keyStore.getKey(alias, null);
+            java.security.PublicKey publicKey = keyStore.getCertificate(alias).getPublicKey();
             return new KeyPair(publicKey, privateKey);
-        } catch (KeyStoreException | NoSuchAlgorithmException | UnrecoverableEntryException e) {
+        } catch (Exception e) {
             throw new VirgilException("couldn't get key by alias", e);
         }
+    }
+
+    public KeyPair getKeyPair(PublicKeyCredentialSource credentialSource) throws VirgilException {
+        if (credentialSource.privateKeyBytes != null && credentialSource.publicKeyBytes != null) {
+            try {
+                byte[] rawPriv = decryptData(credentialSource.privateKeyBytes);
+                KeyFactory kf = KeyFactory.getInstance(KeyProperties.KEY_ALGORITHM_EC);
+                java.security.PrivateKey privKey = kf.generatePrivate(new PKCS8EncodedKeySpec(rawPriv));
+                java.security.PublicKey pubKey = kf.generatePublic(new X509EncodedKeySpec(credentialSource.publicKeyBytes));
+                return new KeyPair(pubKey, privKey);
+            } catch (Exception e) {
+                throw new VirgilException("Failed to decode software key pair", e);
+            }
+        }
+        return getKeyPairByAlias(credentialSource.keyPairAlias);
     }
 
     public SecretKey getSecretKeyByAlias(@NonNull String alias) throws VirgilException {

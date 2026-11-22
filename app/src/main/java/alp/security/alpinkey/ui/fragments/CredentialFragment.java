@@ -69,7 +69,7 @@ public class CredentialFragment extends Fragment {
             registerForActivityResult(new ActivityResultContracts.CreateDocument("application/json"), uri -> {
                 if (uri != null && pendingBackupPassword != null) {
                     try {
-                        byte[] encryptedData = CredentialBackupManager.createEncryptedBackup(credentialList, pendingBackupPassword);
+                        byte[] encryptedData = CredentialBackupManager.createEncryptedBackup(requireContext(), credentialList, pendingBackupPassword);
                         try (OutputStream os = requireContext().getContentResolver().openOutputStream(uri)) {
                             if (os != null) {
                                 os.write(encryptedData);

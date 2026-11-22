@@ -28,6 +28,15 @@ public class PublicKeyCredentialSource {
     public int keyUseCounter;
     public boolean generateHmacSecret;
 
+    @androidx.room.ColumnInfo(name = "privateKeyBytes")
+    public byte[] privateKeyBytes;
+
+    @androidx.room.ColumnInfo(name = "publicKeyBytes")
+    public byte[] publicKeyBytes;
+
+    @Ignore
+    public byte[] rawPrivateKeyBytes;
+
     @Ignore
     private static SecureRandom random;
     @Ignore

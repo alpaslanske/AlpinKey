@@ -245,8 +245,7 @@ public final class Authenticator {
             CryptoObject cryptoObject = null;
             if (credentialSafe.biometricSigningSupported) {
                 biometricSignature = null;
-                PrivateKey privateKey = credentialSafe.getKeyPairByAlias(credentialSource.keyPairAlias)
-                                                        .getPrivate();
+                PrivateKey privateKey = credentialSafe.getKeyPair(credentialSource).getPrivate();
                 Signature signature = WebAuthnCryptography.generateSignatureObject(privateKey);
                 cryptoObject = new CryptoObject(signature);
             }
@@ -481,7 +480,7 @@ public final class Authenticator {
                 CryptoObject cryptoObject = null;
                 if (credentialSafe.biometricSigningSupported) {
                     biometricSignature = null;
-                    PrivateKey privateKey = credentialSafe.getKeyPairByAlias(selectedCredential.keyPairAlias)
+                    PrivateKey privateKey = credentialSafe.getKeyPair(selectedCredential)
                             .getPrivate();
                     Signature signature = WebAuthnCryptography.generateSignatureObject(privateKey);
                     cryptoObject = new CryptoObject(signature);
@@ -588,7 +587,7 @@ public final class Authenticator {
             byteBuffer.put(authenticatorData);
             byteBuffer.put(options.clientDataHash);
             byte[] toSign = byteBuffer.array();
-            KeyPair keyPair = this.credentialSafe.getKeyPairByAlias(selectedCredential.keyPairAlias);
+            KeyPair keyPair = this.credentialSafe.getKeyPair(selectedCredential);
             signatureBytes = this.cryptoProvider.performSignature(keyPair.getPrivate(), toSign, signature);
 
             // 12. Throw UnknownError if any error occurs while generating the assertion signature
@@ -783,7 +782,7 @@ public final class Authenticator {
                     "U2F Server",
                     rpId.second);
 
-            keyPair = credentialSafe.getKeyPairByAlias(credentialSource.keyPairAlias);
+            keyPair = credentialSafe.getKeyPair(credentialSource);
             serializedKey = WebAuthnCryptography.serializePublicKey((ECPublicKey)keyPair.getPublic());
         } catch (VirgilException e) {
             Log.e(TAG, "Error in credential creation");
@@ -1048,7 +1047,7 @@ public final class Authenticator {
         // | AAGUID | L | credentialId | credentialPublicKey |
         // |   16   | 2 |      32      |          n          |
         // total size: 50+n
-        KeyPair keyPair = this.credentialSafe.getKeyPairByAlias(credentialSource.keyPairAlias);
+        KeyPair keyPair = this.credentialSafe.getKeyPair(credentialSource);
         byte[] encodedPublicKey = CredentialSafe.coseEncodePublicKey(keyPair.getPublic());
 
         ByteBuffer credentialData = ByteBuffer.allocate(16 + 2 + credentialSource.id.length + encodedPublicKey.length);
