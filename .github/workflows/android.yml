@@ -25,7 +25,7 @@ jobs:
 
     - name: Keystore Dosyasını Çöz ve Oluştur
       run: |
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release-keystore.jks
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > "${{ github.workspace }}/app/release-keystore.jks"
 
     - name: Gradle'a Çalıştırma İzni Ver
       run: chmod +x gradlew
@@ -33,7 +33,7 @@ jobs:
     - name: İmzalı Release APK Derle
       run: |
         ./gradlew assembleRelease \
-          -Pandroid.injected.signing.store.file=release-keystore.jks \
+          -Pandroid.injected.signing.store.file="${{ github.workspace }}/app/release-keystore.jks" \
           -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
           -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
           -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
@@ -46,10 +46,10 @@ jobs:
         else
           VERSION_TAG="${{ github.ref_name }}"
         fi
-        
+
         NEW_NAME="alpinKey-${VERSION_TAG}-release.apk"
-        
-        mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/$NEW_NAME
+
+        mv app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/$NEW_NAME"
         echo "apk_path=app/build/outputs/apk/release/$NEW_NAME" >> $GITHUB_OUTPUT
 
     - name: Oluşan APK Dosyasını Yükle (Artifact)
@@ -61,6 +61,8 @@ jobs:
 
     - name: APK'yı Doğrudan Release Sayfasına Yükle
       if: github.event_name == 'release'
-      uses: softprops/action-gh-release@v2
-      with:
-        files: ${{ steps.rename_apk.outputs.apk_path }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAG_NAME: ${{ github.event.release.tag_name }}
+      run: |
+        gh release upload "$TAG_NAME" "${{ steps.rename_apk.outputs.apk_path }}" --clobber
