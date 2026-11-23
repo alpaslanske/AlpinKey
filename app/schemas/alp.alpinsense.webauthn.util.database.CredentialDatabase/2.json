@@ -1,0 +1,128 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "529c4d20f6b97a8d81025c777c6b09e3",
+    "entities": [
+      {
+        "tableName": "credentials",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`roomUid` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `id` BLOB, `keyPairAlias` TEXT, `hmacSecretAlias` TEXT, `rpId` TEXT, `rpDisplayName` TEXT, `u2fRpId` TEXT, `rpIcon` TEXT, `userHandle` BLOB, `userDisplayName` TEXT, `otherUI` TEXT, `keyUseCounter` INTEGER NOT NULL, `generateHmacSecret` INTEGER NOT NULL, `privateKeyBytes` BLOB, `publicKeyBytes` BLOB)",
+        "fields": [
+          {
+            "fieldPath": "roomUid",
+            "columnName": "roomUid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "BLOB",
+            "notNull": false
+          },
+          {
+            "fieldPath": "keyPairAlias",
+            "columnName": "keyPairAlias",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "hmacSecretAlias",
+            "columnName": "hmacSecretAlias",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "rpId",
+            "columnName": "rpId",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "rpDisplayName",
+            "columnName": "rpDisplayName",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "u2fRpId",
+            "columnName": "u2fRpId",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "rpIcon",
+            "columnName": "rpIcon",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "userHandle",
+            "columnName": "userHandle",
+            "affinity": "BLOB",
+            "notNull": false
+          },
+          {
+            "fieldPath": "userDisplayName",
+            "columnName": "userDisplayName",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "otherUI",
+            "columnName": "otherUI",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "keyUseCounter",
+            "columnName": "keyUseCounter",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generateHmacSecret",
+            "columnName": "generateHmacSecret",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "privateKeyBytes",
+            "columnName": "privateKeyBytes",
+            "affinity": "BLOB",
+            "notNull": false
+          },
+          {
+            "fieldPath": "publicKeyBytes",
+            "columnName": "publicKeyBytes",
+            "affinity": "BLOB",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "roomUid"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_credentials_rpId",
+            "unique": false,
+            "columnNames": [
+              "rpId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_credentials_rpId` ON `${TABLE_NAME}` (`rpId`)"
+          }
+        ],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '529c4d20f6b97a8d81025c777c6b09e3')"
+    ]
+  }
+}
