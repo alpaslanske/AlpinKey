@@ -116,7 +116,6 @@ public class AboutFragment extends Fragment implements View.OnClickListener {
         mExpandItemList.add(new ExpandItem(R.string.faq_8_question, R.string.faq_8_answer));
         mExpandItemList.add(new ExpandItem(R.string.faq_9_question, R.string.faq_9_answer, getStorageString()));
         mExpandItemList.add(new ExpandItem(R.string.faq_10_question, R.string.faq_10_answer));
-        mExpandItemList.add(new ExpandItem(R.string.faq_11_question, R.string.faq_11_answer));
 
         ExpandAdapter mExpandAdapter = new ExpandAdapter(mExpandItemList, R.layout.recycler_faq);
         mRecyclerViewFaq.setAdapter(mExpandAdapter);

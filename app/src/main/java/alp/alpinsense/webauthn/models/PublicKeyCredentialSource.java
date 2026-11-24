@@ -35,9 +35,6 @@ public class PublicKeyCredentialSource {
     public byte[] publicKeyBytes;
 
     @Ignore
-    public byte[] rawPrivateKeyBytes;
-
-    @Ignore
     private static SecureRandom random;
     @Ignore
     private static final String KEYPAIR_PREFIX = "virgil-keypair-";

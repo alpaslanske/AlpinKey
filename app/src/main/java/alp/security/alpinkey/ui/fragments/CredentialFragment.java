@@ -16,8 +16,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.biometric.BiometricPrompt.CryptoObject;
 import androidx.fragment.app.Fragment;
@@ -26,15 +24,11 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 import alp.alpinsense.webauthn.models.PublicKeyCredentialSource;
-import alp.alpinsense.webauthn.util.CredentialBackupManager;
 import alp.security.alpinkey.MainActivity;
 import alp.security.alpinkey.R;
 import alp.security.alpinkey.ui.AccountInfoDialog;
@@ -51,8 +45,6 @@ public class CredentialFragment extends Fragment {
     FloatingActionButton mDeleteAll;
     FloatingActionButton mResetPin;
     FloatingActionButton mHardwareBacked;
-    FloatingActionButton mBackup;
-    FloatingActionButton mRestore;
     AlertDialog mHardwareDialog;
     AlertDialog mPinDialog;
     RecyclerView mCredentials;
@@ -61,51 +53,6 @@ public class CredentialFragment extends Fragment {
     Dialog mClientPinDialog;
     AccountInfoDialog mAccountInfoDialog;
     List<PublicKeyCredentialSource> credentialList;
-
-    private String pendingBackupPassword = null;
-    private byte[] pendingRestoreData = null;
-
-    private final ActivityResultLauncher<String> createBackupLauncher =
-            registerForActivityResult(new ActivityResultContracts.CreateDocument("application/json"), uri -> {
-                if (uri != null && pendingBackupPassword != null) {
-                    try {
-                        byte[] encryptedData = CredentialBackupManager.createEncryptedBackup(requireContext(), credentialList, pendingBackupPassword);
-                        try (OutputStream os = requireContext().getContentResolver().openOutputStream(uri)) {
-                            if (os != null) {
-                                os.write(encryptedData);
-                                os.flush();
-                                Toast.makeText(getActivity(), getString(R.string.credMan_backupSuccess), Toast.LENGTH_LONG).show();
-                            }
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Failed to create backup", e);
-                        Toast.makeText(getActivity(), getString(R.string.credMan_backupFailed, e.getMessage()), Toast.LENGTH_LONG).show();
-                    } finally {
-                        pendingBackupPassword = null;
-                    }
-                }
-            });
-
-    private final ActivityResultLauncher<String[]> selectRestoreLauncher =
-            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
-                if (uri != null) {
-                    try {
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        try (InputStream is = requireContext().getContentResolver().openInputStream(uri)) {
-                            byte[] buffer = new byte[4096];
-                            int len;
-                            while ((len = is.read(buffer)) != -1) {
-                                baos.write(buffer, 0, len);
-                            }
-                        }
-                        pendingRestoreData = baos.toByteArray();
-                        promptRestorePassword();
-                    } catch (Exception e) {
-                        Log.e(TAG, "Failed to read backup file", e);
-                        Toast.makeText(getActivity(), getString(R.string.credMan_restoreFailed), Toast.LENGTH_LONG).show();
-                    }
-                }
-            });
 
     static final String TAG = "AlpinKey|CredentialFragment";
 
@@ -242,79 +189,6 @@ public class CredentialFragment extends Fragment {
         }
     };
 
-    View.OnClickListener listenerBackup = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            if (credentialList == null || credentialList.isEmpty()) {
-                Toast.makeText(getActivity(), getString(R.string.credMan_noCredentialsToBackup), Toast.LENGTH_LONG).show();
-                return;
-            }
-            promptBackupPassword();
-        }
-    };
-
-    View.OnClickListener listenerRestore = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            selectRestoreLauncher.launch(new String[]{"*/*"});
-        }
-    };
-
-    private void promptBackupPassword() {
-        final EditText input = new EditText(requireContext());
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        input.setHint("Password");
-
-        new AlertDialog.Builder(requireContext(), R.style.DialogTheme)
-                .setTitle(getString(R.string.credMan_backupTitle))
-                .setMessage(getString(R.string.credMan_backupPasswordPrompt))
-                .setView(input)
-                .setPositiveButton("Backup", (dialog, which) -> {
-                    String password = input.getText().toString();
-                    if (password.isEmpty()) {
-                        Toast.makeText(getActivity(), "Password cannot be empty", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    pendingBackupPassword = password;
-                    createBackupLauncher.launch("alpinkey_credentials_backup.json");
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    private void promptRestorePassword() {
-        if (pendingRestoreData == null) return;
-
-        final EditText input = new EditText(requireContext());
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        input.setHint("Password");
-
-        new AlertDialog.Builder(requireContext(), R.style.DialogTheme)
-                .setTitle(getString(R.string.credMan_restoreTitle))
-                .setMessage(getString(R.string.credMan_restorePasswordPrompt))
-                .setView(input)
-                .setPositiveButton("Restore", (dialog, which) -> {
-                    String password = input.getText().toString();
-                    if (password.isEmpty()) {
-                        Toast.makeText(getActivity(), "Password cannot be empty", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    try {
-                        List<PublicKeyCredentialSource> restored = CredentialBackupManager.decryptBackup(pendingRestoreData, password);
-                        int restoredCount = CredentialBackupManager.restoreCredentialsToDatabase(requireContext(), restored);
-                        refreshCredentialsList();
-                        Toast.makeText(getActivity(), getString(R.string.credMan_restoreSuccess, restoredCount), Toast.LENGTH_LONG).show();
-                    } catch (Exception e) {
-                        Log.e(TAG, "Restore failed", e);
-                        Toast.makeText(getActivity(), getString(R.string.credMan_restoreFailed), Toast.LENGTH_LONG).show();
-                    } finally {
-                        pendingRestoreData = null;
-                    }
-                })
-                .setNegativeButton("Cancel", (dialog, which) -> pendingRestoreData = null)
-                .show();
-    }
-
     private void updateEmptyStateVisibility() {
         if (mEmptyStateLayout != null) {
             if (credentialList == null || credentialList.isEmpty()) {
@@ -327,17 +201,6 @@ public class CredentialFragment extends Fragment {
         }
     }
 
-    private void refreshCredentialsList() {
-        if (MainActivity.mAuthenticator != null) {
-            credentialList.clear();
-            credentialList.addAll(MainActivity.mAuthenticator.getAllCredentials());
-            if (mCredentialAdapter != null) {
-                mCredentialAdapter.notifyDataSetChanged();
-            }
-            updateEmptyStateVisibility();
-        }
-    }
-
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_credential, container, false);
@@ -347,15 +210,11 @@ public class CredentialFragment extends Fragment {
         mDeleteAll = root.findViewById(R.id.button_deleteall);
         mResetPin = root.findViewById(R.id.button_resetPin);
         mHardwareBacked = root.findViewById(R.id.button_hardwareBacked);
-        mBackup = root.findViewById(R.id.button_backup);
-        mRestore = root.findViewById(R.id.button_restore);
         mClientPinDialog = new Dialog(Objects.requireNonNull(getActivity()));
 
         mDeleteAll.setOnClickListener(listenerOnDeleteAll);
         mResetPin.setOnClickListener(listenerResetPin);
         mHardwareBacked.setOnClickListener(listenerHardwareBacked);
-        if (mBackup != null) mBackup.setOnClickListener(listenerBackup);
-        if (mRestore != null) mRestore.setOnClickListener(listenerRestore);
 
         mHardwareDialog = new AlertDialog.Builder(this.getContext(), R.style.DialogTheme)
                 .setMessage(R.string.credMan_hardwareBacked)

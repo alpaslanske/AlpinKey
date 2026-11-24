@@ -163,8 +163,6 @@
     <string name="faq_10_question">Can I delete my credentials?</string>
     <string name="faq_10_answer">You can easily manage your credentials by navigating to the <b>Credentials</b> section to see all of your registered credentials alongside relevant information like creation date. </string>
 
-    <string name="faq_11_question">Can I backup/recover my credentials?</string>
-    <string name="faq_11_answer">Backing up and restoring your credentials is at this point in time not possible. This is why we encourage everyone to follow the general Universal 2 Factor authenticaton recommendations and have a fallback secondary login solution that is not tied to the phone.</string>
 
     <!-- Licenses -->
     <string name="license_title">License Information</string>
@@ -488,17 +486,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</string>
     <!-- WebAuthn / AlpinAuthenticator strings -->
     <string name="dialog_select_credential">Select a Credential</string>
 
-    <string name="credMan_backup">Backup Credentials</string>
-    <string name="credMan_restore">Restore Credentials</string>
-    <string name="credMan_backupTitle">Backup Credentials</string>
-    <string name="credMan_backupPasswordPrompt">Enter a password to encrypt your backup file:</string>
-    <string name="credMan_restoreTitle">Restore Credentials</string>
-    <string name="credMan_restorePasswordPrompt">Enter the password used to encrypt the backup file:</string>
-    <string name="credMan_backupSuccess">Credentials backup saved successfully</string>
-    <string name="credMan_restoreSuccess">Restored %1$d credentials successfully</string>
-    <string name="credMan_backupFailed">Backup failed: %1$s</string>
-    <string name="credMan_restoreFailed">Restore failed: Incorrect password or corrupted file</string>
-    <string name="credMan_noCredentialsToBackup">No credentials available to backup</string>
 
     <string name="dialog_excludedTitle">This authenticator is excluded</string>
     <string name="dialog_excludedSubtitle">Select either option to proceed</string>

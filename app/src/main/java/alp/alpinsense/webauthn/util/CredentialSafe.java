@@ -98,8 +98,7 @@ public class CredentialSafe {
 //        BiometricManager biometricManager = BiometricManager.from(ctx);
 //        this.biometricSigningSupported = (biometricManager.canAuthenticate()
 //                                    == BiometricManager.BIOMETRIC_SUCCESS);
-        this.biometricSigningSupported = false; // Biometric signing is always disabled as we give
-                                                // users the option to verify themselves using PIN/Pattern
+        this.biometricSigningSupported = true; // Enabled for maximum security (Hardware-backed CryptoObject)
         this.strongboxRequired = strongboxRequired;
         this.db = CredentialDatabase.getDatabase(ctx);
     }
@@ -118,7 +117,6 @@ public class CredentialSafe {
                 .setAlgorithmParameterSpec(new ECGenParameterSpec(CURVE_NAME))
                 .setDigests(KeyProperties.DIGEST_SHA256)
                 .setUserAuthenticationRequired(true)
-                .setUserAuthenticationValidityDurationSeconds(120)
                 .setUserConfirmationRequired(false)
                 .setInvalidatedByBiometricEnrollment(false)
                 .setIsStrongBoxBacked(this.strongboxRequired)
@@ -231,13 +229,11 @@ public class CredentialSafe {
                                                          generateHmacSecret, u2fRpId);
 
         try {
-            KeyPairGenerator kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC);
-            kpg.initialize(new java.security.spec.ECGenParameterSpec("secp256r1"));
-            KeyPair kp = kpg.generateKeyPair();
-            credentialSource.privateKeyBytes = encryptData(kp.getPrivate().getEncoded());
+            KeyPair kp = generateNewES256KeyPair(credentialSource.keyPairAlias);
+            credentialSource.privateKeyBytes = null; // No longer storing private key in software!
             credentialSource.publicKeyBytes = kp.getPublic().getEncoded();
         } catch (Exception e) {
-            throw new VirgilException("Failed to generate software key pair", e);
+            throw new VirgilException("Failed to generate hardware key pair", e);
         }
 
         SecretKey symmetricKey = null;
